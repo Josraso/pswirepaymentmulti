@@ -54,8 +54,18 @@ class PswirepaymentmultiValidationModuleFrontController extends ModuleFrontContr
 
         require_once _PS_MODULE_DIR_ . 'pswirepaymentmulti/classes/BankAccount.php';
 
+        // DEBUGGING COMPLETO
+        $logFile = _PS_MODULE_DIR_ . 'pswirepaymentmulti/debug_validation.log';
+        $debugInfo = "========== VALIDATION DEBUG " . date('Y-m-d H:i:s') . " ==========\n";
+        $debugInfo .= "GET: " . print_r($_GET, true) . "\n";
+        $debugInfo .= "POST: " . print_r($_POST, true) . "\n";
+        $debugInfo .= "REQUEST: " . print_r($_REQUEST, true) . "\n";
+        $debugInfo .= "Tools::getAllValues(): " . print_r(Tools::getAllValues(), true) . "\n";
+        file_put_contents($logFile, $debugInfo, FILE_APPEND);
+
         // Get the selected bank account ID from GET or POST parameters
         $selectedBankId = (int) Tools::getValue('selected_bank_account');
+        file_put_contents($logFile, "selectedBankId from Tools::getValue: " . $selectedBankId . "\n", FILE_APPEND);
 
         if (!$selectedBankId) {
             // If no bank selected, try to get the first active one as fallback
@@ -90,7 +100,7 @@ class PswirepaymentmultiValidationModuleFrontController extends ModuleFrontContr
             $customer->secure_key
         );
 
-        // Save selected bank ID for later use (email hook and payment return)
+        // Save and send email with selected bank details
         if ($this->module->currentOrder) {
             $orderId = (int) $this->module->currentOrder;
 
@@ -102,8 +112,52 @@ class PswirepaymentmultiValidationModuleFrontController extends ModuleFrontContr
                     "BANK_ID:' . (int) $selectedBankId . '", 1, NOW())';
             Db::getInstance()->execute($sql);
 
-            // El correo se enviará automáticamente por PrestaShop
-            // El hook hookActionEmailAddAfterContent interceptará el correo y añadirá los datos bancarios
+            file_put_contents($logFile, "Bank ID saved in message: " . $selectedBankId . "\n", FILE_APPEND);
+
+            // Get order for order reference
+            $order = new Order($orderId);
+
+            // Build bank details for email
+            $bankDetails = '<div style="background-color:#f8f8f8; padding:15px; border-radius:5px; margin:15px 0;">';
+            $bankDetails .= '<h3 style="margin-top:0; color:#333;">' . $selectedBank->bank_name . '</h3>';
+            $bankDetails .= '<p style="margin:10px 0;"><strong>Titular de la cuenta:</strong><br>' . $selectedBank->owner . '</p>';
+            $bankDetails .= '<p style="margin:10px 0;"><strong>Datos de la cuenta:</strong><br>' . nl2br($selectedBank->details) . '</p>';
+            $bankDetails .= '<p style="margin:10px 0;"><strong>Dirección bancaria:</strong><br>' . nl2br($selectedBank->address) . '</p>';
+            $bankDetails .= '</div>';
+
+            // Email variables
+            $templateVars = [
+                '{bankwire_accounts}' => $bankDetails,
+                '{firstname}' => $customer->firstname,
+                '{lastname}' => $customer->lastname,
+                '{shop_name}' => Configuration::get('PS_SHOP_NAME'),
+                '{shop_url}' => $this->context->link->getPageLink('index', true),
+                '{order_name}' => $order->reference,
+                '{total_paid}' => Tools::displayPrice($total, $currency),
+            ];
+
+            // Send email
+            $langId = (int) $this->context->language->id;
+
+            $emailSent = Mail::Send(
+                $langId,
+                'bankwire',
+                Mail::l('Confirmación de pedido - Transferencia bancaria', $langId),
+                $templateVars,
+                $customer->email,
+                $customer->firstname . ' ' . $customer->lastname,
+                Configuration::get('PS_SHOP_EMAIL'),
+                Configuration::get('PS_SHOP_NAME'),
+                null,
+                null,
+                dirname(__FILE__) . '/../../mails/',
+                false,
+                null,
+                null
+            );
+
+            file_put_contents($logFile, "Email sent: " . ($emailSent ? 'YES' : 'NO') . "\n", FILE_APPEND);
+            file_put_contents($logFile, "Bank details in email: " . $selectedBank->bank_name . "\n", FILE_APPEND);
         }
 
         Tools::redirect('index.php?controller=order-confirmation&id_cart=' . $cart->id . '&id_module=' . $this->module->id . '&id_order=' . $this->module->currentOrder . '&key=' . $customer->secure_key);
