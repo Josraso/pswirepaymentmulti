@@ -84,7 +84,7 @@ class Pswirepaymentmulti extends PaymentModule
             || !$this->registerHook('displayPaymentReturn')
             || !$this->registerHook('paymentOptions')
             || !$this->registerHook('displayHeader')
-            || !$this->registerHook('actionEmailAddAfterContent')
+            || !$this->registerHook('actionEmailSendBefore')
             || !$this->registerHook('displayAdminOrderSide')
             || !$this->installTab()
         ) {
@@ -498,78 +498,30 @@ class Pswirepaymentmulti extends PaymentModule
     }
 
     /**
-     * Hook to add bank details to order confirmation emails
+     * Hook to block native PrestaShop emails for this payment module
+     * We send our own custom email with bank details
      */
-    public function hookActionEmailAddAfterContent($params)
+    public function hookActionEmailSendBefore($params)
     {
-        // Solo procesar correos de confirmación de pedido con pago por transferencia
-        if (!isset($params['template']) || !isset($params['template_vars']['{order_name}'])) {
-            return;
-        }
-
-        // Obtener id_order desde diferentes fuentes posibles
-        $orderId = null;
-        if (isset($params['id_order'])) {
-            $orderId = (int) $params['id_order'];
-        } elseif (isset($params['template_vars']['{id_order}'])) {
-            $orderId = (int) $params['template_vars']['{id_order}'];
-        }
-
-        // Si no hay order ID, intentar buscar por order_name
-        if (!$orderId && isset($params['template_vars']['{order_name}'])) {
-            $orderRef = $params['template_vars']['{order_name}'];
+        // Si el correo es sobre un pedido, verificar si es de nuestro módulo
+        if (isset($params['template']) && isset($params['templateVars']['{order_name}'])) {
+            // Obtener el pedido
+            $orderRef = $params['templateVars']['{order_name}'];
             $result = Db::getInstance()->getRow('
-                SELECT id_order
+                SELECT id_order, module
                 FROM ' . _DB_PREFIX_ . 'orders
                 WHERE reference = "' . pSQL($orderRef) . '"
                 LIMIT 1
             ');
-            if ($result) {
-                $orderId = (int) $result['id_order'];
+
+            if ($result && $result['module'] == 'pswirepaymentmulti') {
+                // Bloquear el correo nativo de PrestaShop
+                // Nosotros enviamos nuestro propio correo personalizado desde validation.php
+                return false;
             }
         }
 
-        if (!$orderId) {
-            return;
-        }
-
-        // Verificar que el pedido usa nuestro método de pago
-        $order = new Order($orderId);
-        if (!Validate::isLoadedObject($order) || $order->module != 'pswirepaymentmulti') {
-            return;
-        }
-
-        // Obtener el banco seleccionado
-        $messages = Db::getInstance()->executeS('
-            SELECT message
-            FROM ' . _DB_PREFIX_ . 'message
-            WHERE id_order = ' . $orderId . '
-            AND message LIKE "BANK_ID:%"
-            ORDER BY date_add DESC
-            LIMIT 1
-        ');
-
-        $selectedBankId = null;
-        if (!empty($messages)) {
-            $message = $messages[0]['message'];
-            if (preg_match('/BANK_ID:(\d+)/', $message, $matches)) {
-                $selectedBankId = (int) $matches[1];
-            }
-        }
-
-        if ($selectedBankId) {
-            $selectedBank = new BankAccount($selectedBankId);
-            if (Validate::isLoadedObject($selectedBank)) {
-                $bankDetails = '<div style="background-color:#f8f8f8; padding:15px; border-radius:5px; margin:15px 0;">';
-                $bankDetails .= '<h3 style="margin-top:0; color:#333;">' . $selectedBank->bank_name . '</h3>';
-                $bankDetails .= '<p style="margin:10px 0;"><strong>Titular de la cuenta:</strong><br>' . $selectedBank->owner . '</p>';
-                $bankDetails .= '<p style="margin:10px 0;"><strong>Datos de la cuenta:</strong><br>' . nl2br($selectedBank->details) . '</p>';
-                $bankDetails .= '<p style="margin:10px 0;"><strong>Dirección bancaria:</strong><br>' . nl2br($selectedBank->address) . '</p>';
-                $bankDetails .= '</div>';
-
-                $params['template_vars']['{bankwire_accounts}'] = $bankDetails;
-            }
-        }
+        return true;
     }
 
     public function hookDisplayAdminOrderSide($params)

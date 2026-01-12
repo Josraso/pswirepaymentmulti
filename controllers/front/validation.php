@@ -118,12 +118,14 @@ class PswirepaymentmultiValidationModuleFrontController extends ModuleFrontContr
             $order = new Order($orderId);
 
             // Build bank details for email
-            $bankDetails = '<div style="background-color:#f8f8f8; padding:15px; border-radius:5px; margin:15px 0;">';
-            $bankDetails .= '<h3 style="margin-top:0; color:#333;">' . $selectedBank->bank_name . '</h3>';
-            $bankDetails .= '<p style="margin:10px 0;"><strong>Titular de la cuenta:</strong><br>' . $selectedBank->owner . '</p>';
-            $bankDetails .= '<p style="margin:10px 0;"><strong>Datos de la cuenta:</strong><br>' . nl2br($selectedBank->details) . '</p>';
-            $bankDetails .= '<p style="margin:10px 0;"><strong>Dirección bancaria:</strong><br>' . nl2br($selectedBank->address) . '</p>';
-            $bankDetails .= '</div>';
+            $bankDetails = '';
+            $bankDetails .= '<h3 style="margin-top:0; color:#333;">' . htmlspecialchars($selectedBank->bank_name) . '</h3>';
+            $bankDetails .= '<p style="margin:10px 0;"><strong>Titular de la cuenta:</strong><br>' . htmlspecialchars($selectedBank->owner) . '</p>';
+            $bankDetails .= '<p style="margin:10px 0;"><strong>Datos de la cuenta:</strong><br>' . $selectedBank->details . '</p>';
+            $bankDetails .= '<p style="margin:10px 0;"><strong>Dirección bancaria:</strong><br>' . $selectedBank->address . '</p>';
+            $bankDetails .= '<p style="margin:15px 0 0 0; padding:10px; background-color:#fff3cd; border-left:4px solid #ffc107;">';
+            $bankDetails .= '<strong>⚠️ IMPORTANTE:</strong> Indica el número de pedido <strong>' . $order->reference . '</strong> en el concepto de la transferencia.';
+            $bankDetails .= '</p>';
 
             // Email variables
             $templateVars = [
@@ -138,11 +140,12 @@ class PswirepaymentmultiValidationModuleFrontController extends ModuleFrontContr
 
             // Send email
             $langId = (int) $this->context->language->id;
+            $emailSubject = 'Datos para tu transferencia - Pedido ' . $order->reference;
 
             $emailSent = Mail::Send(
                 $langId,
                 'bankwire',
-                Mail::l('Confirmación de pedido - Transferencia bancaria', $langId),
+                $emailSubject,
                 $templateVars,
                 $customer->email,
                 $customer->firstname . ' ' . $customer->lastname,
