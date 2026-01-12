@@ -503,10 +503,38 @@ class Pswirepaymentmulti extends PaymentModule
      */
     public function hookActionEmailSendBefore($params)
     {
-        // Si el correo es sobre un pedido, verificar si es de nuestro módulo
-        if (isset($params['template']) && isset($params['templateVars']['{order_name}'])) {
-            // Obtener el pedido
+        $logFile = _PS_MODULE_DIR_ . 'pswirepaymentmulti/debug_email_hook.log';
+
+        // Log para debugging
+        $debugInfo = "\n========== EMAIL HOOK " . date('Y-m-d H:i:s') . " ==========\n";
+        $debugInfo .= "Template: " . (isset($params['template']) ? $params['template'] : 'N/A') . "\n";
+        $debugInfo .= "Has templateVars: " . (isset($params['templateVars']) ? 'YES' : 'NO') . "\n";
+
+        if (isset($params['templateVars'])) {
+            $debugInfo .= "templateVars keys: " . implode(', ', array_keys($params['templateVars'])) . "\n";
+        }
+
+        file_put_contents($logFile, $debugInfo, FILE_APPEND);
+
+        // Verificar múltiples variantes de la estructura de parámetros
+        $orderRef = null;
+
+        // Variante 1: templateVars con {order_name}
+        if (isset($params['templateVars']['{order_name}'])) {
             $orderRef = $params['templateVars']['{order_name}'];
+        }
+        // Variante 2: templateVars sin llaves
+        elseif (isset($params['templateVars']['order_name'])) {
+            $orderRef = $params['templateVars']['order_name'];
+        }
+        // Variante 3: Directamente en params
+        elseif (isset($params['order_name'])) {
+            $orderRef = $params['order_name'];
+        }
+
+        if ($orderRef) {
+            file_put_contents($logFile, "Order ref found: " . $orderRef . "\n", FILE_APPEND);
+
             $result = Db::getInstance()->getRow('
                 SELECT id_order, module
                 FROM ' . _DB_PREFIX_ . 'orders
@@ -515,10 +543,14 @@ class Pswirepaymentmulti extends PaymentModule
             ');
 
             if ($result && $result['module'] == 'pswirepaymentmulti') {
+                file_put_contents($logFile, "BLOCKING email for our module!\n", FILE_APPEND);
                 // Bloquear el correo nativo de PrestaShop
-                // Nosotros enviamos nuestro propio correo personalizado desde validation.php
                 return false;
+            } else {
+                file_put_contents($logFile, "NOT our module or not found\n", FILE_APPEND);
             }
+        } else {
+            file_put_contents($logFile, "No order ref found\n", FILE_APPEND);
         }
 
         return true;
