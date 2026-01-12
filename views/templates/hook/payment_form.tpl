@@ -20,9 +20,9 @@
                   </div>
                 </div>
               </label>
-              <a href="#" class="bank-toggle-details" data-bank-id="{$account.id}" style="padding: 15px; color: #25b9d7; text-decoration: none; white-space: nowrap; display: flex; align-items: center; gap: 5px;">
+              <span class="bank-toggle-details" data-bank-id="{$account.id}" style="padding: 15px; color: #25b9d7; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 5px; user-select: none;">
                 <span class="toggle-icon">▼</span> Ver datos
-              </a>
+              </span>
             </div>
 
             <div class="bank-details-collapse" id="bank-details-{$account.id}" style="display: none; padding: 15px; background-color: #f8f9fa; border: 2px solid #ddd; border-top: none; border-radius: 0 0 8px 8px;">
