@@ -498,8 +498,9 @@ class Pswirepaymentmulti extends PaymentModule
     }
 
     /**
-     * Hook to block native PrestaShop emails for this payment module
+     * Hook to block ONLY bankwire email template for this payment module
      * We send our own custom email with bank details
+     * Other emails (order_conf, new_order, etc.) are allowed through
      */
     public function hookActionEmailSendBefore($params)
     {
@@ -516,7 +517,18 @@ class Pswirepaymentmulti extends PaymentModule
 
         file_put_contents($logFile, $debugInfo, FILE_APPEND);
 
-        // Verificar múltiples variantes de la estructura de parámetros
+        // SOLO bloquear si es el template 'bankwire' específicamente
+        // Dejar pasar order_conf, new_order, y cualquier otro
+        $template = isset($params['template']) ? $params['template'] : '';
+
+        if ($template !== 'bankwire') {
+            file_put_contents($logFile, "Template is NOT 'bankwire', allowing email to pass\n", FILE_APPEND);
+            return true; // Permitir el correo
+        }
+
+        file_put_contents($logFile, "Template IS 'bankwire', checking if it's our module...\n", FILE_APPEND);
+
+        // Es template bankwire, ahora verificar si es de nuestro módulo
         $orderRef = null;
 
         // Variante 1: templateVars con {order_name}
@@ -543,17 +555,17 @@ class Pswirepaymentmulti extends PaymentModule
             ');
 
             if ($result && $result['module'] == 'pswirepaymentmulti') {
-                file_put_contents($logFile, "BLOCKING email for our module!\n", FILE_APPEND);
-                // Bloquear el correo nativo de PrestaShop
+                file_put_contents($logFile, "✓ BLOCKING bankwire email for our module (we send our own)!\n", FILE_APPEND);
+                // Bloquear SOLO el correo bankwire de nuestro módulo
                 return false;
             } else {
-                file_put_contents($logFile, "NOT our module or not found\n", FILE_APPEND);
+                file_put_contents($logFile, "NOT our module, allowing bankwire email\n", FILE_APPEND);
             }
         } else {
-            file_put_contents($logFile, "No order ref found\n", FILE_APPEND);
+            file_put_contents($logFile, "No order ref found in bankwire email\n", FILE_APPEND);
         }
 
-        return true;
+        return true; // Por defecto, permitir el correo
     }
 
     public function hookDisplayAdminOrderSide($params)

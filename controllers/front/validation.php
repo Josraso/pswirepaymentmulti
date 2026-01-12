@@ -88,15 +88,6 @@ class PswirepaymentmultiValidationModuleFrontController extends ModuleFrontContr
         $currency = $this->context->currency;
         $total = (float) $cart->getOrderTotal(true, Cart::BOTH);
 
-        // DESACTIVAR TEMPORALMENTE EL ENVÍO DE CORREOS NATIVOS
-        // Guardamos la configuración original
-        $originalMailStatus = Configuration::get('PS_MAIL_METHOD');
-
-        // Desactivamos el envío de correos temporalmente (método 3 = desactivado)
-        Configuration::updateValue('PS_MAIL_METHOD', 3);
-
-        file_put_contents($logFile, "Mail method DESACTIVADO temporalmente (original: " . $originalMailStatus . ")\n", FILE_APPEND);
-
         $this->module->validateOrder(
             $cart->id,
             (int) Configuration::get('PS_OS_BANKWIRE'),
@@ -108,10 +99,6 @@ class PswirepaymentmultiValidationModuleFrontController extends ModuleFrontContr
             false,
             $customer->secure_key
         );
-
-        // RESTAURAR la configuración de correos inmediatamente
-        Configuration::updateValue('PS_MAIL_METHOD', $originalMailStatus);
-        file_put_contents($logFile, "Mail method RESTAURADO a: " . $originalMailStatus . "\n", FILE_APPEND);
 
         // Save and send email with selected bank details
         if ($this->module->currentOrder) {
