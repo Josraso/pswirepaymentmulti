@@ -88,9 +88,20 @@ class PswirepaymentmultiValidationModuleFrontController extends ModuleFrontContr
         $currency = $this->context->currency;
         $total = (float) $cart->getOrderTotal(true, Cart::BOTH);
 
+        // DESACTIVAR el correo automático del estado PS_OS_BANKWIRE
+        $bankwireStateId = (int) Configuration::get('PS_OS_BANKWIRE');
+        $orderState = new OrderState($bankwireStateId);
+        $originalSendEmail = $orderState->send_email;
+
+        // Temporalmente desactivar el envío de correo de este estado
+        $orderState->send_email = false;
+        $orderState->update();
+
+        file_put_contents($logFile, "Estado PS_OS_BANKWIRE: send_email cambiado de {$originalSendEmail} a 0\n", FILE_APPEND);
+
         $this->module->validateOrder(
             $cart->id,
-            (int) Configuration::get('PS_OS_BANKWIRE'),
+            $bankwireStateId,
             $total,
             $this->module->displayName,
             null,
@@ -99,6 +110,12 @@ class PswirepaymentmultiValidationModuleFrontController extends ModuleFrontContr
             false,
             $customer->secure_key
         );
+
+        // RESTAURAR inmediatamente el estado del correo
+        $orderState->send_email = $originalSendEmail;
+        $orderState->update();
+
+        file_put_contents($logFile, "Estado PS_OS_BANKWIRE: send_email restaurado a {$originalSendEmail}\n", FILE_APPEND);
 
         // Save and send email with selected bank details
         if ($this->module->currentOrder) {
