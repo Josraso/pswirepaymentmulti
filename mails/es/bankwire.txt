@@ -1,0 +1,22 @@
+Hola {firstname} {lastname},
+
+Gracias por tu pedido en {shop_name}.
+
+NÚMERO DE PEDIDO: {order_name}
+IMPORTE TOTAL: {total_paid}
+
+DATOS DE LA CUENTA BANCARIA:
+{bankwire_accounts}
+
+IMPORTANTE: Por favor, incluye tu número de pedido {order_name} en el concepto de la transferencia.
+
+Procesaremos tu pedido tan pronto como recibamos el pago.
+
+Si tienes alguna pregunta, no dudes en contactarnos en {shop_url}contact
+
+Saludos cordiales,
+El equipo de {shop_name}
+
+---
+{shop_name}
+{shop_url}

@@ -1,0 +1,22 @@
+Hi {firstname} {lastname},
+
+Thank you for your order at {shop_name}.
+
+ORDER NUMBER: {order_name}
+TOTAL AMOUNT: {total_paid}
+
+BANK ACCOUNT DETAILS:
+{bankwire_accounts}
+
+IMPORTANT: Please include your order number {order_name} in the bank transfer reference.
+
+We will process your order as soon as we receive payment.
+
+If you have any questions, please contact us at {shop_url}contact
+
+Best regards,
+The {shop_name} team
+
+---
+{shop_name}
+{shop_url}

@@ -1,0 +1,26 @@
+/**
+ * 2007-2025 PrestaShop and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Academic Free License 3.0 (AFL-3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ *
+ * @author    PrestaShop SA <contact@prestashop.com>
+ * @copyright 2007-2025 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/AFL-3.0 Academic Free License 3.0 (AFL-3.0)
+ */
+
+.ps-wirepayment-multi-admin .panel-heading {
+    font-weight: bold;
+}
+
+.ps-wirepayment-multi-admin .alert-info {
+    background-color: #d9edf7;
+    border-color: #bce8f1;
+    color: #31708f;
+}
+
+.ps-wirepayment-multi-admin .btn-lg {
+    margin: 20px 0;
+}
