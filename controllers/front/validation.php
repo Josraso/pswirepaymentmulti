@@ -54,13 +54,6 @@ class PswirepaymentmultiValidationModuleFrontController extends ModuleFrontContr
 
         require_once _PS_MODULE_DIR_ . 'pswirepaymentmulti/classes/BankAccount.php';
 
-        // DEBUGGING: Ver qué está llegando
-        $allParams = Tools::getAllValues();
-        error_log('=== WIRE PAYMENT MULTI DEBUG ===');
-        error_log('GET params: ' . print_r($_GET, true));
-        error_log('POST params: ' . print_r($_POST, true));
-        error_log('All Tools::getAllValues(): ' . print_r($allParams, true));
-
         // Get the selected bank account ID from GET or POST parameters
         $selectedBankId = (int) Tools::getValue('selected_bank_account');
 
@@ -97,7 +90,7 @@ class PswirepaymentmultiValidationModuleFrontController extends ModuleFrontContr
             $customer->secure_key
         );
 
-        // Save and send email
+        // Save selected bank ID for later use (email hook and payment return)
         if ($this->module->currentOrder) {
             $orderId = (int) $this->module->currentOrder;
 
@@ -109,47 +102,8 @@ class PswirepaymentmultiValidationModuleFrontController extends ModuleFrontContr
                     "BANK_ID:' . (int) $selectedBankId . '", 1, NOW())';
             Db::getInstance()->execute($sql);
 
-            // Get order for order reference
-            $order = new Order($orderId);
-
-            // Build bank details for email
-            $bankDetails = '<div style="background-color:#f8f8f8; padding:15px; border-radius:5px; margin:15px 0;">';
-            $bankDetails .= '<h3 style="margin-top:0; color:#333;">' . $selectedBank->bank_name . '</h3>';
-            $bankDetails .= '<p style="margin:10px 0;"><strong>Titular de la cuenta:</strong><br>' . $selectedBank->owner . '</p>';
-            $bankDetails .= '<p style="margin:10px 0;"><strong>Datos de la cuenta:</strong><br>' . nl2br($selectedBank->details) . '</p>';
-            $bankDetails .= '<p style="margin:10px 0;"><strong>Dirección bancaria:</strong><br>' . nl2br($selectedBank->address) . '</p>';
-            $bankDetails .= '</div>';
-
-            // Email variables
-            $templateVars = [
-                '{bankwire_accounts}' => $bankDetails,
-                '{firstname}' => $customer->firstname,
-                '{lastname}' => $customer->lastname,
-                '{shop_name}' => Configuration::get('PS_SHOP_NAME'),
-                '{shop_url}' => $this->context->link->getPageLink('index', true),
-                '{order_name}' => $order->reference,
-                '{total_paid}' => Tools::displayPrice($total, $currency),
-            ];
-
-            // Send email
-            $langId = (int) $this->context->language->id;
-
-            Mail::Send(
-                $langId,
-                'bankwire',
-                Mail::l('Confirmación de pedido - Transferencia bancaria', $langId),
-                $templateVars,
-                $customer->email,
-                $customer->firstname . ' ' . $customer->lastname,
-                Configuration::get('PS_SHOP_EMAIL'),
-                Configuration::get('PS_SHOP_NAME'),
-                null,
-                null,
-                dirname(__FILE__) . '/../../mails/',
-                false,
-                null,
-                null
-            );
+            // El correo se enviará automáticamente por PrestaShop
+            // El hook hookActionEmailAddAfterContent interceptará el correo y añadirá los datos bancarios
         }
 
         Tools::redirect('index.php?controller=order-confirmation&id_cart=' . $cart->id . '&id_module=' . $this->module->id . '&id_order=' . $this->module->currentOrder . '&key=' . $customer->secure_key);

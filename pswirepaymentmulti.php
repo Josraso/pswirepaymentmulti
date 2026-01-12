@@ -266,22 +266,12 @@ class Pswirepaymentmulti extends PaymentModule
         );
 
         $accountCount = count($accounts);
-        $paymentText = 'Pagar por transferencia bancaria - Elija entre ' . $accountCount . ' bancos';
-
-        // Obtener el ID del primer banco como valor por defecto
-        $firstBankId = $accounts[0]['id_bank_account'];
+        $paymentText = 'Pagar por transferencia bancaria' . ($accountCount > 1 ? ' - Elija entre ' . $accountCount . ' bancos' : '');
 
         $newOption = new PaymentOption();
         $newOption->setModuleName($this->name)
                 ->setCallToActionText($paymentText)
-                ->setAction($this->context->link->getModuleLink($this->name, 'validation', [], true))
-                ->setInputs([
-                    'selected_bank_account' => [
-                        'name' => 'selected_bank_account',
-                        'type' => 'hidden',
-                        'value' => $firstBankId,
-                    ],
-                ])
+                ->setForm($this->fetch('module:pswirepaymentmulti/views/templates/hook/payment_form.tpl'))
                 ->setAdditionalInformation($this->fetch('module:pswirepaymentmulti/views/templates/hook/ps_wirepayment_intro.tpl'));
 
         return [
@@ -508,23 +498,52 @@ class Pswirepaymentmulti extends PaymentModule
     }
 
     /**
-     * Hook to send email with bank details
+     * Hook to add bank details to order confirmation emails
      */
     public function hookActionEmailAddAfterContent($params)
     {
-        if (!isset($params['template']) || $params['template'] != 'bankwire') {
+        // Solo procesar correos de confirmación de pedido con pago por transferencia
+        if (!isset($params['template']) || !isset($params['template_vars']['{order_name}'])) {
             return;
         }
 
-        // Get selected bank from order
-        if (!isset($params['id_order'])) {
+        // Obtener id_order desde diferentes fuentes posibles
+        $orderId = null;
+        if (isset($params['id_order'])) {
+            $orderId = (int) $params['id_order'];
+        } elseif (isset($params['template_vars']['{id_order}'])) {
+            $orderId = (int) $params['template_vars']['{id_order}'];
+        }
+
+        // Si no hay order ID, intentar buscar por order_name
+        if (!$orderId && isset($params['template_vars']['{order_name}'])) {
+            $orderRef = $params['template_vars']['{order_name}'];
+            $result = Db::getInstance()->getRow('
+                SELECT id_order
+                FROM ' . _DB_PREFIX_ . 'orders
+                WHERE reference = "' . pSQL($orderRef) . '"
+                LIMIT 1
+            ');
+            if ($result) {
+                $orderId = (int) $result['id_order'];
+            }
+        }
+
+        if (!$orderId) {
             return;
         }
 
+        // Verificar que el pedido usa nuestro método de pago
+        $order = new Order($orderId);
+        if (!Validate::isLoadedObject($order) || $order->module != 'pswirepaymentmulti') {
+            return;
+        }
+
+        // Obtener el banco seleccionado
         $messages = Db::getInstance()->executeS('
             SELECT message
             FROM ' . _DB_PREFIX_ . 'message
-            WHERE id_order = ' . (int) $params['id_order'] . '
+            WHERE id_order = ' . $orderId . '
             AND message LIKE "BANK_ID:%"
             ORDER BY date_add DESC
             LIMIT 1
@@ -541,10 +560,12 @@ class Pswirepaymentmulti extends PaymentModule
         if ($selectedBankId) {
             $selectedBank = new BankAccount($selectedBankId);
             if (Validate::isLoadedObject($selectedBank)) {
-                $bankDetails = '<strong>' . $selectedBank->bank_name . '</strong><br>';
-                $bankDetails .= 'Titular: ' . $selectedBank->owner . '<br>';
-                $bankDetails .= 'Detalles: ' . nl2br($selectedBank->details) . '<br>';
-                $bankDetails .= 'Dirección: ' . nl2br($selectedBank->address) . '<br>';
+                $bankDetails = '<div style="background-color:#f8f8f8; padding:15px; border-radius:5px; margin:15px 0;">';
+                $bankDetails .= '<h3 style="margin-top:0; color:#333;">' . $selectedBank->bank_name . '</h3>';
+                $bankDetails .= '<p style="margin:10px 0;"><strong>Titular de la cuenta:</strong><br>' . $selectedBank->owner . '</p>';
+                $bankDetails .= '<p style="margin:10px 0;"><strong>Datos de la cuenta:</strong><br>' . nl2br($selectedBank->details) . '</p>';
+                $bankDetails .= '<p style="margin:10px 0;"><strong>Dirección bancaria:</strong><br>' . nl2br($selectedBank->address) . '</p>';
+                $bankDetails .= '</div>';
 
                 $params['template_vars']['{bankwire_accounts}'] = $bankDetails;
             }

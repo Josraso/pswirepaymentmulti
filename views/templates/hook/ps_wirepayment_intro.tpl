@@ -85,7 +85,7 @@ jQuery(document).ready(function($) {
 
   // Función para actualizar el modal con el banco seleccionado
   function updateModalContent() {
-    var selectedId = $('input[name="selected_bank_account"]:checked').val();
+    var selectedId = $('input[type="radio"][name="selected_bank_account"]:checked').val();
     console.log('[Wire Payment Multi] Actualizando modal para banco:', selectedId);
     $('.bank-account-detail').hide();
     if (selectedId) {
@@ -95,46 +95,17 @@ jQuery(document).ready(function($) {
   }
 
   // Actualizar clases visuales cuando cambia la selección
-  $('input[name="selected_bank_account"]').on('change', function() {
+  $('input[type="radio"][name="selected_bank_account"]').on('change', function() {
     var selectedBankId = $(this).val();
     console.log('[Wire Payment Multi] ===== BANCO SELECCIONADO:', selectedBankId, '=====');
 
+    // Actualizar clases visuales
     $('.bank-account-card').removeClass('selected');
     $(this).closest('.bank-account-card').addClass('selected');
 
-    // BUSCAR Y ACTUALIZAR TODOS LOS CAMPOS OCULTOS POSIBLES
-    var updated = false;
-
-    // Buscar por selector completo
-    $('input[name="selected_bank_account"]').each(function() {
-      if ($(this).attr('type') === 'hidden') {
-        $(this).val(selectedBankId);
-        console.log('[Wire Payment Multi] ✓ Campo oculto actualizado:', $(this).val());
-        updated = true;
-      }
-    });
-
-    // Si no encontró ninguno, buscar en el formulario de pago
-    if (!updated) {
-      var $paymentForm = $('#payment-confirmation button[type="submit"]').closest('form');
-      if ($paymentForm.length > 0) {
-        // Buscar campo existente
-        var $hidden = $paymentForm.find('input[name="selected_bank_account"]');
-        if ($hidden.length > 0) {
-          $hidden.val(selectedBankId);
-          console.log('[Wire Payment Multi] ✓ Campo en form encontrado y actualizado');
-        } else {
-          // Crear campo si no existe
-          $paymentForm.append('<input type="hidden" name="selected_bank_account" value="' + selectedBankId + '">');
-          console.log('[Wire Payment Multi] ✓ Campo creado en formulario');
-        }
-        updated = true;
-      }
-    }
-
-    if (!updated) {
-      console.error('[Wire Payment Multi] ✗ NO SE PUDO ACTUALIZAR NINGÚN CAMPO OCULTO');
-    }
+    // Actualizar el campo hidden en el formulario
+    $('#selected_bank_account_input').val(selectedBankId);
+    console.log('[Wire Payment Multi] ✓ Campo hidden actualizado a:', selectedBankId);
 
     // Actualizar el modal
     updateModalContent();
@@ -146,16 +117,15 @@ jQuery(document).ready(function($) {
   });
 
   // Inicializar
-  updateModalContent();
-
-  // Forzar inicialización del campo oculto con el primer banco
   setTimeout(function() {
-    var firstBank = $('input[name="selected_bank_account"]:checked').val();
-    if (firstBank) {
-      console.log('[Wire Payment Multi] Inicializando con banco:', firstBank);
-      $('input[name="selected_bank_account"]:checked').trigger('change');
+    var firstBankRadio = $('input[type="radio"][name="selected_bank_account"]:checked');
+    if (firstBankRadio.length > 0) {
+      var firstBankId = firstBankRadio.val();
+      console.log('[Wire Payment Multi] Inicializando con banco:', firstBankId);
+      $('#selected_bank_account_input').val(firstBankId);
+      updateModalContent();
     }
-  }, 500);
+  }, 200);
 
   console.log('[Wire Payment Multi] ✓ Script cargado');
 });
